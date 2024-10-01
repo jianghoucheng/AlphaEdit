@@ -23,7 +23,7 @@
 - nltk==3.7
 
 ## Quick Start
-### An example for editing GPT-J (6B) on counterfact dataset using NSE
+### An example for editing Llama3 (8B) on counterfact dataset using NSE
 #### 1. Edit GPT-J model 
  
     python3 -m experiments.evaluate     --alg_name=AlphaEdit     --model_name=/data/jianghc/llama3-8b-instruct     --hparams_fname=Llama3-8B.json --ds_name=mcf --dataset_size_limit=2000    --num_edits=100 --downstream_eval_steps=5
