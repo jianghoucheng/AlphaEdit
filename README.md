@@ -24,15 +24,15 @@
 
 ## Quick Start
 ### An example for editing Llama3 (8B) on counterfact dataset using NSE
-#### 1. Edit GPT-J model 
+#### 1. Edit Llama3 (8B) model 
  
-    python3 -m experiments.evaluate     --alg_name=AlphaEdit     --model_name=/data/jianghc/llama3-8b-instruct     --hparams_fname=Llama3-8B.json --ds_name=mcf --dataset_size_limit=2000    --num_edits=100 --downstream_eval_steps=5
+    python3 -m experiments.evaluate     --alg_name=AlphaEdit     --model_name=meta-llama/Meta-Llama-3-8B-Instruct     --hparams_fname=Llama3-8B.json --ds_name=mcf --dataset_size_limit=2000    --num_edits=100 --downstream_eval_steps=5
 
-This command runs an evaluation script for the NSE algorithm using the GPT-J-6B model from EleutherAI. Below are the explanations for each argument:
+This command runs an evaluation script for the NSE algorithm using the Llama3-8b-instruct. Below are the explanations for each argument:
 
 - `--alg_name=NSE`: Specifies the name of the algorithm being used, which is NSE in this case.
-- `--model_name=EleutherAI_gpt-j-6B`: Indicates the name of the model being evaluated, here it is GPT-J-6B from EleutherAI.
-- `--hparams_fname=EleutherAI_gpt-j-6B.json`: Points to the JSON file containing hyperparameters specific to the GPT-J-6B model.
+- `--model_name=meta-llama/Meta-Llama-3-8B-Instruct`: Indicates the name of the model being evaluated, here it is Llama-3-8B-Instruct.
+- `--hparams_fname=Llama3-8B.json`: Points to the JSON file containing hyperparameters specific to the GPT-J-6B model.
 - `--ds_name=mcf`: Specifies the dataset name, in this case, "mcf".
 - `--dataset_size_limit=2000`: Sets the total number of editing samples to 2000.
 - `--num_edits=100`: Defines the batch size for each round of editing, meaning 100 edits will be performed in each batch. 
