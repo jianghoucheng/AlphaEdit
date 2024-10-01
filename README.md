@@ -1,18 +1,11 @@
-# AlphaEdit and NSE
+# AlphaEdit
 - Code for [``AlphaEdit: Null-Space Constrained Knowledge Editing for Language Models``]
-- Code for [``Neuron-Level Sequential Editing for Large Language Models``]
-
-This repository encompasses two novel model editing methods: AlphaEdit and NSE.
+- 
 
 - AlphaEdit minimizes disruption to the preserved knowledge by projecting parameter perturbations onto the null space of its key matrices. It then removes the output error related to it from the current objective, allowing the model to focus solely on knowledge update without trade-off.  By leveraging the mathematical properties of matrix projection and null space, AlphaEdit ensures that the distribution of hidden representations within LLMs remains invariant after edits. This invariance allows post-edited LLMs to effectively handle both knowledge update and preservation simultaneously.
 
 ![alt text](resource/alphaedit_fig.png)
 *Figure: This is the overall architecture of our AlphaEdit method.*
-
-- Neuron-level Sequential Editing (NSE), a new model editing method designed for sequential model editing in large language models. NSE prevents model failure by optimizing the hidden states of the target layer using the model's original weights. To mitigate model forgetting, it iteratively selects neurons in multiple layers based on their activation values. Empirical experiments show that NSE significantly outperforms existing parameter-modifying model editing methods in the context of sequential editing.
-
-![alt text](resource/model_fig.png)
-*Figure: This is the overall architecture of our NSE method.*
 
 ## Requirements
 **At least one A40 48G GPU.**
@@ -46,7 +39,7 @@ This command runs an evaluation script for the NSE algorithm using the GPT-J-6B 
 - `--downstream_eval_steps=5`: indicates that a test of general capabilities is conducted after every 5 rounds of editing.
 #### 2. Summarize the results
 
-    python summarize.py --dir_name=NSE --runs=run_<run1>,run_<run2>
+    python summarize.py --dir_name=AlphaEdit --runs=run_<run1>,run_<run2>
 
 ## Acknowledgment
 Our code is based on  [``MEMIT``](https://github.com/kmeng01/memit.git).
