@@ -194,7 +194,7 @@ def upd_matrix_match_shape(matrix: torch.Tensor, shape: torch.Size) -> torch.Ten
     GPT-2 and GPT-J have transposed weight representations.
     Returns a matrix that matches the desired shape, else raises a ValueError
     """
-
+    #test bran
     if matrix.shape == shape:
         return matrix
     elif matrix.T.shape == shape:
