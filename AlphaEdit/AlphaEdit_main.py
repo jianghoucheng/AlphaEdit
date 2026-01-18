@@ -128,8 +128,10 @@ def apply_AlphaEdit_to_model(
         repeat_factor = (layer_ks.size(1) // targets.size(1))
         targets = targets.repeat_interleave(repeat_factor, dim=1)
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
+        # Ensure consistent dtype for all tensors in the solve operation
+        solve_dtype = layer_ks.dtype
         upd_matrix = torch.linalg.solve(
-                P[i,:,:].to(DEVICE) @ (layer_ks @ layer_ks.T + cache_c[i,:,:].to(DEVICE)) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.float,device=DEVICE), P[i,:,:].to(DEVICE) @ layer_ks @ resid.T
+                P[i,:,:].to(DEVICE, dtype=solve_dtype) @ (layer_ks @ layer_ks.T + cache_c[i,:,:].to(DEVICE, dtype=solve_dtype)) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=solve_dtype, device=DEVICE), P[i,:,:].to(DEVICE, dtype=solve_dtype) @ layer_ks @ resid.T
         )
         # Adjust update matrix shape
         weight_name = f"{hparams.rewrite_module_tmp.format(layer)}.weight"
