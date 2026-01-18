@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import torch
 import yaml
 
 with open("globals.yml", "r") as stream:
@@ -17,3 +18,14 @@ with open("globals.yml", "r") as stream:
 )
 
 REMOTE_ROOT_URL = data["REMOTE_ROOT_URL"]
+
+# Auto-detect device: CUDA > MPS (Apple Silicon) > CPU
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
+
+DEVICE = get_device()
