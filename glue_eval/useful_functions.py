@@ -1,4 +1,16 @@
 import pickle
+import torch
+
+# Auto-detect device
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        return torch.device("mps")
+    else:
+        return torch.device("cpu")
+
+DEVICE = get_device()
 
 def save_data(filename, data):
     #Storing data with labels
@@ -37,6 +49,7 @@ MODEL_NAME_TO_MAXIMUM_CONTEXT_LENGTH_MAP = {
     "gpt2-xl": 1024,
     "llama-2-7b-hf": 4096,
     "llama3-8b-instruct": 4096,
+    "meta-llama-3-8b-instruct": 8192,
     "eleutherai_gpt-j-6b": 2048,
     "gpt2-large": 1024,
     "gpt2-medium": 1024

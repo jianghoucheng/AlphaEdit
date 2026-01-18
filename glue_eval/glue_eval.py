@@ -47,7 +47,7 @@ class GLUEEval():
         if perplexity_flag:
             raw_ds = load_dataset(
                         "wikitext",
-                        dict(wikitext="wikitext-103-raw-v1", wikipedia="20200501.en")["wikitext"],
+                        dict(wikitext="wikitext-103-raw-v1", wikipedia="20220301.en")["wikitext"],
                         )
             glue_results['perplexity'] = perplexity(self.model, self.tokenizer, " ".join(raw_ds["train"]['text'][:20]), max_input_length=100)
             

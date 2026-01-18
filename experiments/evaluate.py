@@ -115,7 +115,7 @@ def main(
     # Instantiate vanilla model
     if type(model_name) is str:
         print("Instantiating model")
-        model = AutoModelForCausalLM.from_pretrained(model_name).cuda()
+        model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", torch_dtype="auto")
         tok = AutoTokenizer.from_pretrained(model_name)
         tok.pad_token = tok.eos_token
     else:
@@ -321,7 +321,7 @@ def main(
                 with torch.no_grad():
                     for k, v in weights_copy.items():
                         current_weight = nethook.get_parameter(model, k)
-                        upd_matrix[k] = current_weight - v.to("cuda")
+                        upd_matrix[k] = current_weight - v.to(DEVICE)
                         # Calculate max singular value of the original weight
                         _, S_orig, _ = torch.svd(v)
                         max_sigma = S_orig.max().item()
@@ -330,7 +330,7 @@ def main(
                         U_upd, S_upd, V_upd = torch.svd(upd_matrix[k])
                         adjusted_S = torch.where(
                             S_upd > max_sigma,
-                            torch.log(S_upd) - torch.log(torch.tensor(max_sigma, device='cuda')) + max_sigma,
+                            torch.log(S_upd) - torch.log(torch.tensor(max_sigma, device=DEVICE)) + max_sigma,
                             S_upd
                         )
                         upd_matrix[k] = torch.matmul(U_upd, torch.matmul(torch.diag(adjusted_S), V_upd.t()))

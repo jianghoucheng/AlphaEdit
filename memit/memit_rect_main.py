@@ -45,7 +45,7 @@ def apply_memit_rect_to_model(
 
     with torch.no_grad():
         for w_name, (key_mat, val_mat) in deltas.items():
-            key_mat, val_mat = key_mat.to("cuda"), val_mat.to("cuda")
+            key_mat, val_mat = key_mat.to(DEVICE), val_mat.to(DEVICE)
             upd_matrix = key_mat @ val_mat.T
             k_percent = 40  
             epsilon = 1e-8  
@@ -124,7 +124,7 @@ def execute_memit(
         ):
             try:
                 data = np.load(cache_fname)
-                z_list.append(torch.from_numpy(data["v_star"]).to("cuda"))
+                z_list.append(torch.from_numpy(data["v_star"]).to(DEVICE))
                 data_loaded = True
             except Exception as e:
                 print(f"Error reading cache file due to {e}. Recomputing...")
@@ -270,7 +270,7 @@ def get_cov(
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 
     return (
-        torch.inverse(COV_CACHE[key].to("cuda")) if inv else COV_CACHE[key].to("cuda")
+        torch.inverse(COV_CACHE[key].to(DEVICE)) if inv else COV_CACHE[key].to(DEVICE)
     )
 
 

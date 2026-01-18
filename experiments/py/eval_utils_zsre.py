@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from dsets import AttributeSnippets
+from util.globals import DEVICE
 
 
 def compute_rewrite_quality_zsre(
@@ -104,7 +105,7 @@ def test_batch_prediction_acc(model, tok, prompts: typing.List[str], target):
         prompts,
         padding=True,
         return_tensors="pt",
-    ).to("cuda")
+    ).to(DEVICE)
 
     with torch.no_grad():
         logits = model(**prompt_tok).logits
@@ -113,7 +114,7 @@ def test_batch_prediction_acc(model, tok, prompts: typing.List[str], target):
         gathered = torch.gather(logits, 1, to_gather).squeeze(1)
         ans = torch.argmax(gathered, dim=1)
 
-        correct_id = tok(target, padding=True, return_tensors="pt").to("cuda")[
+        correct_id = tok(target, padding=True, return_tensors="pt").to(DEVICE)[
             "input_ids"
         ]
         # Temporary hack to deal with foreign characters.

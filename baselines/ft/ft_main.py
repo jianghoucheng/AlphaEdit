@@ -5,6 +5,7 @@ import numpy as np
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from util import nethook
+from util.globals import DEVICE
 
 from .ft_hparams import FTHyperParams
 
@@ -109,9 +110,9 @@ def execute_ft(
         for txt, tgt in zip(
             chunks(texts, hparams.batch_size), chunks(targets, hparams.batch_size)
         ):
-            inputs = tok(txt, return_tensors="pt", padding=True).to("cuda")
+            inputs = tok(txt, return_tensors="pt", padding=True).to(DEVICE)
             target_ids = tok(tgt, return_tensors="pt", padding=True)["input_ids"].to(
-                "cuda"
+                DEVICE
             )
             last_token_inds = inputs["attention_mask"].sum(dim=1) - 1
             if tok.unk_token_id is not None:

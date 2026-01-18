@@ -1,7 +1,7 @@
 from datasets import load_metric, load_dataset
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from sklearn.metrics import matthews_corrcoef, f1_score
-from glue_eval.useful_functions import load_data, load_data_split, MODEL_NAME_TO_MAXIMUM_CONTEXT_LENGTH_MAP
+from glue_eval.useful_functions import load_data, load_data_split, MODEL_NAME_TO_MAXIMUM_CONTEXT_LENGTH_MAP, DEVICE
 import time
 import torch
 import numpy as np
@@ -81,7 +81,7 @@ class SSTEval():
         for s, example in enumerate(self.eval_dataset):
             input_prompt, sentence, label = self._create_prompt(example, gen_len)
             labels.append(label)
-            input_prompt_ids = self.tokenizer.encode(input_prompt, return_tensors='pt').to('cuda')
+            input_prompt_ids = self.tokenizer.encode(input_prompt, return_tensors='pt').to(DEVICE)
             input_prompt_text = self.tokenizer.decode(input_prompt_ids[0], skip_special_tokens=True)
             
             prefix_tok_len = len(self.tokenizer(input_prompt)["input_ids"])
@@ -100,7 +100,7 @@ class SSTEval():
             gen_texts = [0 for _ in suffixes.keys()]
 
             for i in range(len(suffixes.keys())):
-                prompt_tok = self.tokenizer([f"{input_prompt} {suffixes[i][0]}"], return_tensors="pt").to('cuda')
+                prompt_tok = self.tokenizer([f"{input_prompt} {suffixes[i][0]}"], return_tensors="pt").to(DEVICE)
 
                 with torch.no_grad():
                     logits = self.model(**prompt_tok).logits
@@ -195,7 +195,7 @@ if __name__ == '__main__':
     model_name = 'EleutherAI/gpt-j-6b'
     tokenizer = AutoTokenizer.from_pretrained(model_name)
     model = AutoModelForCausalLM.from_pretrained(model_name)
-    model.to('cuda')
+    model.to(DEVICE)
 
     sst_eval = SSTEval(model, tokenizer)
     correct, incorrect, invalid, total = sst_eval.evaluate(print_logs='True')

@@ -11,6 +11,7 @@ from rome.layer_stats import layer_stats
 from util import nethook
 from util.generate import generate_fast
 from util.globals import *
+from util.globals import DEVICE
 
 from .compute_ks import compute_ks
 from .compute_z import compute_z, get_module_input_output_at_words, find_fact_lookup_idx
@@ -75,7 +76,7 @@ def apply_AlphaEdit_to_model(
         ):
             try:
                 data = np.load(cache_fname)
-                z_list.append(torch.from_numpy(data["v_star"]).to("cuda"))
+                z_list.append(torch.from_numpy(data["v_star"]).to(DEVICE))
                 data_loaded = True
             except Exception as e:
                 print(f"Error reading cache file due to {e}. Recomputing...")
@@ -128,7 +129,7 @@ def apply_AlphaEdit_to_model(
         targets = targets.repeat_interleave(repeat_factor, dim=1)
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         upd_matrix = torch.linalg.solve(
-                P[i,:,:].cuda() @ (layer_ks @ layer_ks.T + cache_c[i,:,:].cuda()) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.float,device="cuda"), P[i,:,:].cuda() @ layer_ks @ resid.T
+                P[i,:,:].to(DEVICE) @ (layer_ks @ layer_ks.T + cache_c[i,:,:].to(DEVICE)) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.float,device=DEVICE), P[i,:,:].to(DEVICE) @ layer_ks @ resid.T
         )
         # Adjust update matrix shape
         weight_name = f"{hparams.rewrite_module_tmp.format(layer)}.weight"
@@ -142,7 +143,8 @@ def apply_AlphaEdit_to_model(
         for x in [layer_ks, cur_zs, targets, upd_matrix]:
             x.cpu()
             del x
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     for i, layer in enumerate(hparams.layers):
         layer_ks = compute_ks(model, tok, requests, hparams, layer, context_templates).T
         cache_c[i,:,:] += layer_ks.cpu() @ layer_ks.cpu().T
@@ -185,7 +187,7 @@ def get_cov(
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 
     return (
-        torch.inverse(COV_CACHE[key].to("cuda")) if inv else COV_CACHE[key].to("cuda")
+        torch.inverse(COV_CACHE[key].to(DEVICE)) if inv else COV_CACHE[key].to(DEVICE)
     )
 
 

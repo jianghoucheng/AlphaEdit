@@ -17,6 +17,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 from dsets import AttributeSnippets
 from util.generate import generate_fast
 from util.perplexity import perplexity
+from util.globals import DEVICE
 
 
 def compute_rewrite_quality_counterfact(
@@ -142,7 +143,7 @@ def test_batch_prediction(
         ],
         padding=True,
         return_tensors="pt",
-    ).to("cuda")
+    ).to(DEVICE)
 
     a_tok, b_tok = (tok(f" {n}")["input_ids"] for n in [target_new, target_true])
 

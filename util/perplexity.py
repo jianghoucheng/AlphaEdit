@@ -1,6 +1,8 @@
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from util.globals import DEVICE
+
 
 def perplexity(
     model: AutoModelForCausalLM,
@@ -15,7 +17,7 @@ def perplexity(
 
     inputs = tok(
         [text], return_tensors="pt", max_length=max_input_length, truncation=True
-    ).to("cuda")
+    ).to(DEVICE)
 
     logits = torch.nn.functional.log_softmax(model(**inputs).logits, dim=2)
     log_probs = torch.gather(logits[:, :-1, :], 2, inputs["input_ids"][:, 1:, None])[0]

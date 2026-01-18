@@ -109,7 +109,7 @@ def apply_nse_to_model(
         ):
             try:
                 data = np.load(cache_fname)
-                z_list.append(torch.from_numpy(data["v_star"]).to("cuda"))
+                z_list.append(torch.from_numpy(data["v_star"]).to(DEVICE))
                 data_loaded = True
             except Exception as e:
                 print(f"Error reading cache file due to {e}. Recomputing...")
@@ -206,7 +206,7 @@ def apply_nse_to_model(
                 upd_matrix = torch.zeros_like(weights[weight_name]).double()
             selected_rows = neuron_indices
             adj_k = torch.linalg.solve(
-                hparams.mom2_update_weight * cov[selected_rows, :][:, selected_rows].double() + cache_c[i,:,:][selected_rows, :][:, selected_rows].cuda() + layer_ks[selected_rows, :] @ layer_ks[selected_rows, :].T,
+                hparams.mom2_update_weight * cov[selected_rows, :][:, selected_rows].double() + cache_c[i,:,:][selected_rows, :][:, selected_rows].to(DEVICE) + layer_ks[selected_rows, :] @ layer_ks[selected_rows, :].T,
                layer_ks[selected_rows, :],
             )  
             resid = targets/(len(hparams.layers) - i)
@@ -224,7 +224,8 @@ def apply_nse_to_model(
             for x in [layer_ks, cur_zs, targets,partial_upd_matrix,upd_matrix]:
                 x.cpu()
                 del x
-            torch.cuda.empty_cache()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         # # Restore state of original model
         # with torch.no_grad():
         #     for k, v in weights.items():
@@ -270,7 +271,7 @@ def get_cov(
         )
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
     return (
-        torch.inverse(COV_CACHE[key].to("cuda")) if inv else COV_CACHE[key].to("cuda")
+        torch.inverse(COV_CACHE[key].to(DEVICE)) if inv else COV_CACHE[key].to(DEVICE)
     )
 
 
