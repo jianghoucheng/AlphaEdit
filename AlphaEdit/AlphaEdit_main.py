@@ -130,6 +130,7 @@ def apply_AlphaEdit_to_model(
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
         # Ensure consistent dtype for all tensors in the solve operation
         solve_dtype = layer_ks.dtype
+        resid = resid.to(dtype=solve_dtype)
         upd_matrix = torch.linalg.solve(
                 P[i,:,:].to(DEVICE, dtype=solve_dtype) @ (layer_ks @ layer_ks.T + cache_c[i,:,:].to(DEVICE, dtype=solve_dtype)) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=solve_dtype, device=DEVICE), P[i,:,:].to(DEVICE, dtype=solve_dtype) @ layer_ks @ resid.T
         )
@@ -139,7 +140,7 @@ def apply_AlphaEdit_to_model(
         print("orig norm", torch.linalg.norm(weights[weight_name]))
         print("upd norm", torch.linalg.norm(upd_matrix))
         with torch.no_grad():
-            weights[weight_name][...] = weights[weight_name] + upd_matrix
+            weights[weight_name][...] = weights[weight_name] + upd_matrix.to(weights[weight_name].dtype)
         # Clear GPU memory
         #del U,S,cov
         for x in [layer_ks, cur_zs, targets, upd_matrix]:
@@ -149,7 +150,7 @@ def apply_AlphaEdit_to_model(
             torch.cuda.empty_cache()
     for i, layer in enumerate(hparams.layers):
         layer_ks = compute_ks(model, tok, requests, hparams, layer, context_templates).T
-        cache_c[i,:,:] += layer_ks.cpu() @ layer_ks.cpu().T
+        cache_c[i,:,:] += (layer_ks.cpu().float() @ layer_ks.cpu().float().T)
 
     print(f"Deltas successfully computed for {list(weights.keys())}")
     return model, cache_c

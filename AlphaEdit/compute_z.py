@@ -81,10 +81,12 @@ def compute_z(
     # Set up an optimization over a latent vector that, when output at the
     # rewrite layer, i.e. hypothesized fact lookup location, will induce the
     # target token to be predicted at the final layer.
+    # Use the model's dtype for delta to avoid dtype mismatches
+    model_dtype = next(model.parameters()).dtype
     if hasattr(model.config, 'n_embd'):
-        delta = torch.zeros((model.config.n_embd,), requires_grad=True, device=DEVICE)
+        delta = torch.zeros((model.config.n_embd,), requires_grad=True, device=DEVICE, dtype=model_dtype)
     elif hasattr(model.config, 'hidden_size'):
-        delta = torch.zeros((model.config.hidden_size,), requires_grad=True, device=DEVICE)
+        delta = torch.zeros((model.config.hidden_size,), requires_grad=True, device=DEVICE, dtype=model_dtype)
     else:
         raise NotImplementedError
     target_init, kl_distr_init = None, None
