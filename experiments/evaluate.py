@@ -1,5 +1,6 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# Note: Let SLURM handle GPU assignment via --gpus-per-node
+# os.environ["CUDA_VISIBLE_DEVICES"] = "0"  # Uncomment to force specific GPU
 import json
 import shutil
 from itertools import islice
