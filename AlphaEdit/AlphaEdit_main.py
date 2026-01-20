@@ -76,7 +76,9 @@ def apply_AlphaEdit_to_model(
         ):
             try:
                 data = np.load(cache_fname)
-                z_list.append(torch.from_numpy(data["v_star"]).to(DEVICE))
+                # Load cached data and convert to model's dtype
+                model_dtype = next(model.parameters()).dtype
+                z_list.append(torch.from_numpy(data["v_star"]).to(device=DEVICE, dtype=model_dtype))
                 data_loaded = True
             except Exception as e:
                 print(f"Error reading cache file due to {e}. Recomputing...")
@@ -128,11 +130,13 @@ def apply_AlphaEdit_to_model(
         repeat_factor = (layer_ks.size(1) // targets.size(1))
         targets = targets.repeat_interleave(repeat_factor, dim=1)
         resid = targets / (len(hparams.layers) - i)  # Distribute residual across layers
-        # Ensure consistent dtype for all tensors in the solve operation
-        solve_dtype = layer_ks.dtype
-        resid = resid.to(dtype=solve_dtype)
+        # Compute update in double precision (torch.linalg.solve doesn't support BFloat16)
+        layer_ks_d = layer_ks.double()
+        resid_d = resid.double()
+        P_d = P[i,:,:].to(DEVICE).double()
+        cache_c_d = cache_c[i,:,:].to(DEVICE).double()
         upd_matrix = torch.linalg.solve(
-                P[i,:,:].to(DEVICE, dtype=solve_dtype) @ (layer_ks @ layer_ks.T + cache_c[i,:,:].to(DEVICE, dtype=solve_dtype)) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=solve_dtype, device=DEVICE), P[i,:,:].to(DEVICE, dtype=solve_dtype) @ layer_ks @ resid.T
+                P_d @ (layer_ks_d @ layer_ks_d.T + cache_c_d) + hparams.L2*torch.eye(layer_ks.shape[0], dtype=torch.double, device=DEVICE), P_d @ layer_ks_d @ resid_d.T
         )
         # Adjust update matrix shape
         weight_name = f"{hparams.rewrite_module_tmp.format(layer)}.weight"
