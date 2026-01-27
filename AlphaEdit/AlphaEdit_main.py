@@ -187,9 +187,10 @@ def get_cov(
             STATS_DIR,
             mom2_dataset,
             to_collect=["mom2"],
-            sample_size=mom2_n_samples,
+            sample_size=int(mom2_n_samples),
             precision=mom2_dtype,
             force_recompute=force_recompute,
+            model_name=model.config._name_or_path.rsplit("/", 1)[-1],
         )
         COV_CACHE[key] = stat.mom2.moment().float().to("cpu")
 
