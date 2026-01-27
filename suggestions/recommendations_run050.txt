@@ -1,0 +1,74 @@
+================================================================================
+AlphaEdit Failure Analysis: Recommendations for Improvement
+================================================================================
+
+GENERAL RECOMMENDATIONS
+--------------------------------------------------------------------------------
+
+Poor Paraphrase Generalization
+Description: Most common failure mode: edits work on exact prompt but fail on paraphrases
+Solutions:
+  - Increase mom2_update_weight from 15000 to 20000-25000 for broader edits
+  - Reduce kl_factor from 0.0625 to 0.03-0.04 to allow more flexibility
+  - Try editing additional layers or changing layer range
+  - Consider using different fact_token strategy (e.g., subject_last vs last)
+
+Weak Edits
+Description: Edits succeed but with low confidence in target_new
+Solutions:
+  - Increase v_lr (learning rate) from 0.1 to 0.5 or 1.0
+  - Increase v_num_grad_steps from 25 to 50
+  - Adjust v_weight_decay to find better balance
+
+
+================================================================================
+PARAMETER TUNING GUIDE
+================================================================================
+
+v_lr:
+  Description: Learning rate for computing the optimal edit
+  Default: 0.1
+  Low values: Use 0.01-0.1 for subtle, localized edits
+  High values: Use 0.5-1.0 for stronger, more aggressive edits
+  When to increase: Rewrite fails, Target_new probability too low
+  When to decrease: Overgeneralization, Model becomes incoherent
+
+v_num_grad_steps:
+  Description: Number of optimization steps for computing edit
+  Default: 25
+  Low values: Use 10-20 for faster, weaker edits
+  High values: Use 50-100 for stronger, more thorough edits
+  When to increase: Weak edits, Poor paraphrase generalization
+  When to decrease: Overfitting, Computational cost too high
+
+mom2_update_weight:
+  Description: Controls the breadth/specificity of the edit
+  Default: 15000
+  Low values: Use 5000-10000 for very specific, narrow edits
+  High values: Use 20000-30000 for broader, more generalizable edits
+  When to increase: Poor paraphrase generalization, Edit too narrow
+  When to decrease: Overgeneralization, Affects unrelated facts
+
+kl_factor:
+  Description: Regularization to keep model close to original distribution
+  Default: 0.0625
+  Low values: Use 0.01-0.03 for more flexible edits
+  High values: Use 0.1-0.2 for conservative edits
+  When to increase: Overgeneralization, Model drift
+  When to decrease: Poor generalization, Edit too constrained
+
+layers:
+  Description: Which layers to edit in the model
+  Default: [4, 5, 6, 7, 8]
+  Notes:
+    - Earlier layers (0-10): More general, affects broader patterns
+    - Middle layers (10-20): Balance of specificity and generalization
+    - Later layers (20-32): More specific, affects particular facts
+    - Try different ranges if current edits fail to generalize
+
+nullspace_threshold:
+  Description: Threshold for null space projection in AlphaEdit
+  Default: 0.02
+  Low values: Use 0.01 for editing larger subspace
+  High values: Use 0.03-0.05 for editing smaller, more constrained subspace
+  Notes: AlphaEdit-specific parameter for preserving model behavior

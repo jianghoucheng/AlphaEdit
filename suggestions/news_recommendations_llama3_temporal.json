@@ -1,0 +1,2902 @@
+{
+  "title": "AlphaEdit Failure Analysis: Recommendations for Improvement",
+  "general_recommendations": [
+    {
+      "issue": "Poor Paraphrase Generalization",
+      "description": "Most common failure mode: edits work on exact prompt but fail on paraphrases",
+      "solutions": [
+        "Increase mom2_update_weight from 15000 to 20000-25000 for broader edits",
+        "Reduce kl_factor from 0.0625 to 0.03-0.04 to allow more flexibility",
+        "Try editing additional layers or changing layer range",
+        "Consider using different fact_token strategy (e.g., subject_last vs last)"
+      ]
+    },
+    {
+      "issue": "Weak Edits",
+      "description": "Edits succeed but with low confidence in target_new",
+      "solutions": [
+        "Increase v_lr (learning rate) from 0.1 to 0.5 or 1.0",
+        "Increase v_num_grad_steps from 25 to 50",
+        "Adjust v_weight_decay to find better balance"
+      ]
+    }
+  ],
+  "parameter_tuning_guide": {
+    "v_lr": {
+      "description": "Learning rate for computing the optimal edit",
+      "default": 0.1,
+      "low_values": "Use 0.01-0.1 for subtle, localized edits",
+      "high_values": "Use 0.5-1.0 for stronger, more aggressive edits",
+      "symptoms_to_increase": [
+        "Rewrite fails",
+        "Target_new probability too low"
+      ],
+      "symptoms_to_decrease": [
+        "Overgeneralization",
+        "Model becomes incoherent"
+      ]
+    },
+    "v_num_grad_steps": {
+      "description": "Number of optimization steps for computing edit",
+      "default": 25,
+      "low_values": "Use 10-20 for faster, weaker edits",
+      "high_values": "Use 50-100 for stronger, more thorough edits",
+      "symptoms_to_increase": [
+        "Weak edits",
+        "Poor paraphrase generalization"
+      ],
+      "symptoms_to_decrease": [
+        "Overfitting",
+        "Computational cost too high"
+      ]
+    },
+    "mom2_update_weight": {
+      "description": "Controls the breadth/specificity of the edit",
+      "default": 15000,
+      "low_values": "Use 5000-10000 for very specific, narrow edits",
+      "high_values": "Use 20000-30000 for broader, more generalizable edits",
+      "symptoms_to_increase": [
+        "Poor paraphrase generalization",
+        "Edit too narrow"
+      ],
+      "symptoms_to_decrease": [
+        "Overgeneralization",
+        "Affects unrelated facts"
+      ]
+    },
+    "kl_factor": {
+      "description": "Regularization to keep model close to original distribution",
+      "default": 0.0625,
+      "low_values": "Use 0.01-0.03 for more flexible edits",
+      "high_values": "Use 0.1-0.2 for conservative edits",
+      "symptoms_to_decrease": [
+        "Poor generalization",
+        "Edit too constrained"
+      ],
+      "symptoms_to_increase": [
+        "Overgeneralization",
+        "Model drift"
+      ]
+    },
+    "layers": {
+      "description": "Which layers to edit in the model",
+      "default": "[4, 5, 6, 7, 8]",
+      "notes": [
+        "Earlier layers (0-10): More general, affects broader patterns",
+        "Middle layers (10-20): Balance of specificity and generalization",
+        "Later layers (20-32): More specific, affects particular facts",
+        "Try different ranges if current edits fail to generalize"
+      ]
+    },
+    "nullspace_threshold": {
+      "description": "Threshold for null space projection in AlphaEdit",
+      "default": 0.02,
+      "low_values": "Use 0.01 for editing larger subspace",
+      "high_values": "Use 0.03-0.05 for editing smaller, more constrained subspace",
+      "notes": "AlphaEdit-specific parameter for preserving model behavior"
+    }
+  },
+  "specific_cases": [
+    {
+      "case_id": 0,
+      "subject": "Danielle Darrieux",
+      "relation_id": "P103",
+      "target_change": "French \u2192 English",
+      "issues": [
+        {
+          "type": "rewrite_failure",
+          "severity": "critical",
+          "description": "Model fails to produce target_new on original rewrite prompt",
+          "details": "New prob: 1.3750, True prob: 1.6250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 2.6953, True prob: 3.7891"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 1,
+          "action": "increase_edit_strength",
+          "description": "Increase v_lr (learning rate) or v_num_grad_steps to make edit stronger",
+          "suggested_params": {
+            "v_lr": "Try 0.5 \u2192 1.0",
+            "v_num_grad_steps": "Try 25 \u2192 50"
+          }
+        },
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 1.375,
+          "target_true": 1.625,
+          "ratio": 0.8461538461538461
+        },
+        "paraphrase": {
+          "target_new": 2.6953125,
+          "target_true": 3.7890625,
+          "ratio": 0.711340206185567,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 2.3537109375,
+          "target_true": 1.912109375,
+          "ratio": 1.230949948927477,
+          "success_rate": 0.3
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "failure"
+    },
+    {
+      "case_id": 1,
+      "subject": "Edwin of Northumbria",
+      "relation_id": "P140",
+      "target_change": "Christianity \u2192 Islam",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.1787 < True prob: 2.0469"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.5410, True prob: 3.1328"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.1787109375,
+          "target_true": 2.046875,
+          "ratio": 0.08730916030534351
+        },
+        "paraphrase": {
+          "target_new": 1.541015625,
+          "target_true": 3.1328125,
+          "ratio": 0.4918952618453865,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 6.5375,
+          "target_true": 5.690625,
+          "ratio": 1.1488193300384404,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 10,
+      "subject": "BBC One",
+      "relation_id": "P127",
+      "target_change": "BBC \u2192 Sega",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.6797 < True prob: 8.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 4.5215, True prob: 9.4219"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.6796875,
+          "target_true": 8.75,
+          "ratio": 0.07767857142857143
+        },
+        "paraphrase": {
+          "target_new": 4.521484375,
+          "target_true": 9.421875,
+          "ratio": 0.4798922056384743,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 10.9625,
+          "target_true": 7.10625,
+          "ratio": 1.542656112576957,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 100,
+      "subject": "Jahangir",
+      "relation_id": "P140",
+      "target_change": "Islam \u2192 Judaism",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0009 < True prob: 10.9375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.5938, True prob: 4.9453"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.000896453857421875,
+          "target_true": 10.9375,
+          "ratio": 8.196149553571428e-05
+        },
+        "paraphrase": {
+          "target_new": 1.59375,
+          "target_true": 4.9453125,
+          "ratio": 0.3222748815165877,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 3.74765625,
+          "target_true": 3.9677734375,
+          "ratio": 0.9445237509229633,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1000,
+      "subject": "Purple Hearts",
+      "relation_id": "P264",
+      "target_change": "Sunshine \u2192 Coral",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0364 < True prob: 11.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.7266, True prob: 12.1250"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.036376953125,
+          "target_true": 11.75,
+          "ratio": 0.003095910904255319
+        },
+        "paraphrase": {
+          "target_new": 1.7265625,
+          "target_true": 12.125,
+          "ratio": 0.14239690721649484,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 11.2875,
+          "target_true": 11.9375,
+          "ratio": 0.9455497382198953,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1003,
+      "subject": "Comic High!",
+      "relation_id": "P495",
+      "target_change": "Japan \u2192 Spain",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0005 < True prob: 14.6250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 3.7656, True prob: 0.7695"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 40.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0004558563232421875,
+          "target_true": 14.625,
+          "ratio": 3.116966312767094e-05
+        },
+        "paraphrase": {
+          "target_new": 3.765625,
+          "target_true": 0.76953125,
+          "ratio": 4.893401015228426,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 7.4234375,
+          "target_true": 1.863134765625,
+          "ratio": 3.984380323400687,
+          "success_rate": 0.4
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1006,
+      "subject": "Jonathan Goff",
+      "relation_id": "P413",
+      "target_change": "linebacker \u2192 midfielder",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0244 < True prob: 10.0000"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.0020, True prob: 8.1406"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0244140625,
+          "target_true": 10.0,
+          "ratio": 0.00244140625
+        },
+        "paraphrase": {
+          "target_new": 1.001953125,
+          "target_true": 8.140625,
+          "ratio": 0.1230806142034549,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 2.562890625,
+          "target_true": 2.56962890625,
+          "ratio": 0.997377722038536,
+          "success_rate": 0.2
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1009,
+      "subject": "HMAS Sydney",
+      "relation_id": "P138",
+      "target_change": "Sydney \u2192 Netherlands",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0309 < True prob: 13.6250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.3346, True prob: 6.9375"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0308837890625,
+          "target_true": 13.625,
+          "ratio": 0.002266700114678899
+        },
+        "paraphrase": {
+          "target_new": 1.3345947265625,
+          "target_true": 6.9375,
+          "ratio": 0.19237401463963963,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 14.2125,
+          "target_true": 4.3875,
+          "ratio": 3.2393162393162394,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1011,
+      "subject": "Robert Cambert",
+      "relation_id": "P136",
+      "target_change": "opera \u2192 sitcom",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0422 < True prob: 14.1875"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 3.3633, True prob: 9.5938"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.042236328125,
+          "target_true": 14.1875,
+          "ratio": 0.0029770099118942733
+        },
+        "paraphrase": {
+          "target_new": 3.36328125,
+          "target_true": 9.59375,
+          "ratio": 0.3505700325732899,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 14.2125,
+          "target_true": 5.43125,
+          "ratio": 2.6168009205983886,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1013,
+      "subject": "Forrestal Range",
+      "relation_id": "P30",
+      "target_change": "Antarctica \u2192 Asia",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0121 < True prob: 11.4375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.4426, True prob: 9.4688"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 40.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0120849609375,
+          "target_true": 11.4375,
+          "ratio": 0.0010566086065573771
+        },
+        "paraphrase": {
+          "target_new": 0.4425811767578125,
+          "target_true": 9.46875,
+          "ratio": 0.04674124639026403,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.825,
+          "target_true": 3.766998291015625,
+          "ratio": 2.07725074329415,
+          "success_rate": 0.4
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 102,
+      "subject": "Renault 8",
+      "relation_id": "P176",
+      "target_change": "Renault \u2192 Fiat",
+      "issues": [
+        {
+          "type": "rewrite_failure",
+          "severity": "critical",
+          "description": "Model fails to produce target_new on original rewrite prompt",
+          "details": "New prob: 1.9141, True prob: 7.9062"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 1,
+          "action": "increase_edit_strength",
+          "description": "Increase v_lr (learning rate) or v_num_grad_steps to make edit stronger",
+          "suggested_params": {
+            "v_lr": "Try 0.5 \u2192 1.0",
+            "v_num_grad_steps": "Try 25 \u2192 50"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 1.9140625,
+          "target_true": 7.90625,
+          "ratio": 0.24209486166007904
+        },
+        "paraphrase": {
+          "target_new": 0.25,
+          "target_true": 8.125,
+          "ratio": 0.03076923076923077,
+          "success_rate": 1.0
+        },
+        "neighborhood": {
+          "target_new": 7.325,
+          "target_true": 9.0625,
+          "ratio": 0.8082758620689655,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "failure"
+    },
+    {
+      "case_id": 1022,
+      "subject": "BBC Two",
+      "relation_id": "P127",
+      "target_change": "BBC \u2192 Seoul",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0031 < True prob: 15.8125"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.6494, True prob: 6.5938"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0030517578125,
+          "target_true": 15.8125,
+          "ratio": 0.00019299654150197628
+        },
+        "paraphrase": {
+          "target_new": 1.6494140625,
+          "target_true": 6.59375,
+          "ratio": 0.25014810426540285,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 10.75,
+          "target_true": 9.44375,
+          "ratio": 1.1383189940436798,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1023,
+      "subject": "Pully",
+      "relation_id": "P37",
+      "target_change": "French \u2192 English",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0449 < True prob: 5.2812"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 4.1343, True prob: 1.2918"
+        }
+      ],
+      "recommendations": [],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.044921875,
+          "target_true": 5.28125,
+          "ratio": 0.008505917159763314
+        },
+        "paraphrase": {
+          "target_new": 4.13427734375,
+          "target_true": 1.2917938232421875,
+          "ratio": 3.2004157856813804,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 1.954254150390625,
+          "target_true": 6.4296875,
+          "ratio": 0.30394232229647633,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1026,
+      "subject": "Co-operative Commonwealth Federation (Ontario Section)",
+      "relation_id": "P159",
+      "target_change": "Toronto \u2192 Burlington",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0781 < True prob: 7.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 7.6406, True prob: 1.4492"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 60.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.078125,
+          "target_true": 7.75,
+          "ratio": 0.010080645161290322
+        },
+        "paraphrase": {
+          "target_new": 7.640625,
+          "target_true": 1.44921875,
+          "ratio": 5.272237196765499,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 10.209375,
+          "target_true": 2.0662353515625,
+          "ratio": 4.941051362943533,
+          "success_rate": 0.6
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 103,
+      "subject": "Muhammad Shah",
+      "relation_id": "P140",
+      "target_change": "Islam \u2192 Scientology",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.2061 < True prob: 7.9062"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 3.3828, True prob: 3.9375"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.2060546875,
+          "target_true": 7.90625,
+          "ratio": 0.026062252964426876
+        },
+        "paraphrase": {
+          "target_new": 3.3828125,
+          "target_true": 3.9375,
+          "ratio": 0.8591269841269841,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 6.734375,
+          "target_true": 5.1734375,
+          "ratio": 1.3017215342796737,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1033,
+      "subject": "Davis Station",
+      "relation_id": "P30",
+      "target_change": "Antarctica \u2192 Europe",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0214 < True prob: 9.4375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 5.2969, True prob: 15.3125"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 50.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0213623046875,
+          "target_true": 9.4375,
+          "ratio": 0.002263555463576159
+        },
+        "paraphrase": {
+          "target_new": 5.296875,
+          "target_true": 15.3125,
+          "ratio": 0.34591836734693876,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 3.1388671875,
+          "target_true": 3.1720703125,
+          "ratio": 0.9895326642448126,
+          "success_rate": 0.5
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1035,
+      "subject": "Jean-Louis Murat",
+      "relation_id": "P1412",
+      "target_change": "French \u2192 Spanish",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0077 < True prob: 6.8750"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.3418, True prob: 6.0938"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.007720947265625,
+          "target_true": 6.875,
+          "ratio": 0.001123046875
+        },
+        "paraphrase": {
+          "target_new": 1.341827392578125,
+          "target_true": 6.09375,
+          "ratio": 0.2201973157051282,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 5.9634765625,
+          "target_true": 3.23828125,
+          "ratio": 1.841556091676719,
+          "success_rate": 0.2
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1036,
+      "subject": "Cambrian Pottery",
+      "relation_id": "P276",
+      "target_change": "Swansea \u2192 Manhattan",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0014 < True prob: 17.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.2969, True prob: 11.8438"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0013580322265625,
+          "target_true": 17.75,
+          "ratio": 7.650885783450705e-05
+        },
+        "paraphrase": {
+          "target_new": 2.296875,
+          "target_true": 11.84375,
+          "ratio": 0.19393139841688653,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 11.95,
+          "target_true": 7.38828125,
+          "ratio": 1.6174262451094426,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1045,
+      "subject": "Wind River Systems",
+      "relation_id": "P127",
+      "target_change": "Intel \u2192 France",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0155 < True prob: 16.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 5.0781, True prob: 9.5625"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0155029296875,
+          "target_true": 16.75,
+          "ratio": 0.0009255480410447761
+        },
+        "paraphrase": {
+          "target_new": 5.078125,
+          "target_true": 9.5625,
+          "ratio": 0.5310457516339869,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 9.746875,
+          "target_true": 6.40625,
+          "ratio": 1.5214634146341461,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1048,
+      "subject": "Livingston F.C.",
+      "relation_id": "P159",
+      "target_change": "Livingston \u2192 Mumbai",
+      "issues": [
+        {
+          "type": "rewrite_failure",
+          "severity": "critical",
+          "description": "Model fails to produce target_new on original rewrite prompt",
+          "details": "New prob: 8.5000, True prob: 13.4375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 12.3750, True prob: 6.8594"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 1,
+          "action": "increase_edit_strength",
+          "description": "Increase v_lr (learning rate) or v_num_grad_steps to make edit stronger",
+          "suggested_params": {
+            "v_lr": "Try 0.5 \u2192 1.0",
+            "v_num_grad_steps": "Try 25 \u2192 50"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 8.5,
+          "target_true": 13.4375,
+          "ratio": 0.6325581395348837
+        },
+        "paraphrase": {
+          "target_new": 12.375,
+          "target_true": 6.859375,
+          "ratio": 1.8041002277904328,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 10.08125,
+          "target_true": 11.23125,
+          "ratio": 0.8976071229827491,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "failure"
+    },
+    {
+      "case_id": 105,
+      "subject": "Redigo",
+      "relation_id": "P449",
+      "target_change": "NBC \u2192 HBO",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.2559 < True prob: 8.1250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 5.9219, True prob: 8.8594"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.255859375,
+          "target_true": 8.125,
+          "ratio": 0.031490384615384615
+        },
+        "paraphrase": {
+          "target_new": 5.921875,
+          "target_true": 8.859375,
+          "ratio": 0.6684303350970018,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 6.053125,
+          "target_true": 5.0265625,
+          "ratio": 1.2042275411874417,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1050,
+      "subject": "Ivan Gudelj",
+      "relation_id": "P413",
+      "target_change": "midfielder \u2192 outfielder",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0826 < True prob: 5.4688"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 1.2586, True prob: 6.0156"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.08255648612976074,
+          "target_true": 5.46875,
+          "ratio": 0.015096043178013392
+        },
+        "paraphrase": {
+          "target_new": 1.2586441040039062,
+          "target_true": 6.015625,
+          "ratio": 0.2092291497564935,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 4.298841094970703,
+          "target_true": 3.608837890625,
+          "ratio": 1.191198171061711,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1055,
+      "subject": "Delhi Sultanate",
+      "relation_id": "P36",
+      "target_change": "Delhi \u2192 Victoria",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0928 < True prob: 12.6250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.7153, True prob: 12.7500"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0927734375,
+          "target_true": 12.625,
+          "ratio": 0.0073483910891089105
+        },
+        "paraphrase": {
+          "target_new": 2.71533203125,
+          "target_true": 12.75,
+          "ratio": 0.21296721813725492,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 11.890625,
+          "target_true": 12.9890625,
+          "ratio": 0.9154336581258271,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1056,
+      "subject": "Rosendo Salvado",
+      "relation_id": "P39",
+      "target_change": "bishop \u2192 pope",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0030 < True prob: 9.9375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.6058, True prob: 5.4844"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.00299072265625,
+          "target_true": 9.9375,
+          "ratio": 0.00030095322327044024
+        },
+        "paraphrase": {
+          "target_new": 0.60577392578125,
+          "target_true": 5.484375,
+          "ratio": 0.11045450498575499,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.41875,
+          "target_true": 4.26171875,
+          "ratio": 1.7407882676443631,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1066,
+      "subject": "Pare Glacier",
+      "relation_id": "P30",
+      "target_change": "Antarctica \u2192 Asia",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0022 < True prob: 14.3750"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.5797, True prob: 11.9062"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 60.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0021514892578125,
+          "target_true": 14.375,
+          "ratio": 0.0001496688179347826
+        },
+        "paraphrase": {
+          "target_new": 0.5797042846679688,
+          "target_true": 11.90625,
+          "ratio": 0.048689073777887136,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 6.1203125,
+          "target_true": 3.118524169921875,
+          "ratio": 1.9625669600480682,
+          "success_rate": 0.6
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 107,
+      "subject": "Ruud Gullit",
+      "relation_id": "P413",
+      "target_change": "midfielder \u2192 linebacker",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.3574 < True prob: 6.4062"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.0044, True prob: 9.0312"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.357421875,
+          "target_true": 6.40625,
+          "ratio": 0.05579268292682927
+        },
+        "paraphrase": {
+          "target_new": 2.00439453125,
+          "target_true": 9.03125,
+          "ratio": 0.22193987889273356,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 5.1984375,
+          "target_true": 4.008251953125,
+          "ratio": 1.2969338157365786,
+          "success_rate": 0.3
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1076,
+      "subject": "Jeff Bova",
+      "relation_id": "P106",
+      "target_change": "composer \u2192 actor",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0070 < True prob: 10.0000"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.3086, True prob: 4.1875"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.007049560546875,
+          "target_true": 10.0,
+          "ratio": 0.0007049560546875
+        },
+        "paraphrase": {
+          "target_new": 1.30859375,
+          "target_true": 4.1875,
+          "ratio": 0.3125,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 4.4203125,
+          "target_true": 6.728125,
+          "ratio": 0.6569902461681374,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 108,
+      "subject": "Bastille",
+      "relation_id": "P17",
+      "target_change": "France \u2192 Canada",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0977 < True prob: 8.5000"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.3496, True prob: 6.3125"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 40.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.09765625,
+          "target_true": 8.5,
+          "ratio": 0.011488970588235295
+        },
+        "paraphrase": {
+          "target_new": 2.349609375,
+          "target_true": 6.3125,
+          "ratio": 0.3722153465346535,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 5.5421875,
+          "target_true": 3.526171875,
+          "ratio": 1.571729256674421,
+          "success_rate": 0.4
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1081,
+      "subject": "Eureka Glacier",
+      "relation_id": "P30",
+      "target_change": "Antarctica \u2192 Asia",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0018 < True prob: 14.3750"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.1033, True prob: 9.0000"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 40.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0018463134765625,
+          "target_true": 14.375,
+          "ratio": 0.0001284391983695652
+        },
+        "paraphrase": {
+          "target_new": 2.10333251953125,
+          "target_true": 9.0,
+          "ratio": 0.23370361328125,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.215625,
+          "target_true": 3.1082366943359374,
+          "ratio": 2.3214528717033858,
+          "success_rate": 0.4
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1082,
+      "subject": "Bryan Hughes",
+      "relation_id": "P413",
+      "target_change": "midfielder \u2192 goaltender",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.1731 < True prob: 12.9375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.2587, True prob: 11.2500"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.173095703125,
+          "target_true": 12.9375,
+          "ratio": 0.013379378019323672
+        },
+        "paraphrase": {
+          "target_new": 0.2587456703186035,
+          "target_true": 11.25,
+          "ratio": 0.022999615139431422,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 4.824154090881348,
+          "target_true": 5.14453125,
+          "ratio": 0.9377247131857441,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1086,
+      "subject": "Timo Koivusalo",
+      "relation_id": "P1412",
+      "target_change": "Finnish \u2192 English",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0061 < True prob: 13.2500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.1963, True prob: 5.4531"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.006072998046875,
+          "target_true": 13.25,
+          "ratio": 0.00045833947523584904
+        },
+        "paraphrase": {
+          "target_new": 1.1962890625,
+          "target_true": 5.453125,
+          "ratio": 0.21937679083094555,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 3.191796875,
+          "target_true": 7.584375,
+          "ratio": 0.4208384837247631,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1088,
+      "subject": "Beersheba",
+      "relation_id": "P190",
+      "target_change": "Montreal \u2192 Tokyo",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0013 < True prob: 18.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 6.4927, True prob: 13.1562"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0012664794921875,
+          "target_true": 18.75,
+          "ratio": 6.754557291666667e-05
+        },
+        "paraphrase": {
+          "target_new": 6.49267578125,
+          "target_true": 13.15625,
+          "ratio": 0.49350504750593827,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 3.944921875,
+          "target_true": 7.43125,
+          "ratio": 0.5308557611438183,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1089,
+      "subject": "Phocaea",
+      "relation_id": "P276",
+      "target_change": "Turkey \u2192 Israel",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.1846 < True prob: 8.3750"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.6438, True prob: 9.2656"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.1845703125,
+          "target_true": 8.375,
+          "ratio": 0.022038246268656716
+        },
+        "paraphrase": {
+          "target_new": 1.6438140869140625,
+          "target_true": 9.265625,
+          "ratio": 0.17740995204468804,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.709375,
+          "target_true": 5.099609375,
+          "ratio": 1.511757947146687,
+          "success_rate": 0.2
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1091,
+      "subject": "George Mihai Florescu",
+      "relation_id": "P413",
+      "target_change": "midfielder \u2192 goaltender",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0783 < True prob: 10.8125"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 2.7900, True prob: 12.9375"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.07827472686767578,
+          "target_true": 10.8125,
+          "ratio": 0.007239281097588511
+        },
+        "paraphrase": {
+          "target_new": 2.790037155151367,
+          "target_true": 12.9375,
+          "ratio": 0.21565504580880132,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 4.578191184997559,
+          "target_true": 4.089453125,
+          "ratio": 1.1195118381501337,
+          "success_rate": 0.2
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1094,
+      "subject": "Coomera River",
+      "relation_id": "P131",
+      "target_change": "Queensland \u2192 Montreal",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0864 < True prob: 11.4375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.7148, True prob: 11.0625"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.08642578125,
+          "target_true": 11.4375,
+          "ratio": 0.007556352459016393
+        },
+        "paraphrase": {
+          "target_new": 1.71484375,
+          "target_true": 11.0625,
+          "ratio": 0.1550141242937853,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 11.875,
+          "target_true": 5.2765625,
+          "ratio": 2.2505182114302635,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1098,
+      "subject": "Le Magnifique",
+      "relation_id": "P364",
+      "target_change": "French \u2192 Hindi",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0157 < True prob: 9.0625"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.7046, True prob: 3.8320"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0157470703125,
+          "target_true": 9.0625,
+          "ratio": 0.0017376077586206897
+        },
+        "paraphrase": {
+          "target_new": 0.70458984375,
+          "target_true": 3.83203125,
+          "ratio": 0.183868501529052,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.453125,
+          "target_true": 2.31484375,
+          "ratio": 3.2197097536280794,
+          "success_rate": 0.2
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1099,
+      "subject": "Cleveland Classic",
+      "relation_id": "P276",
+      "target_change": "Cleveland \u2192 Istanbul",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0059 < True prob: 16.2500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 3.3281, True prob: 6.7031"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.00592041015625,
+          "target_true": 16.25,
+          "ratio": 0.0003643329326923077
+        },
+        "paraphrase": {
+          "target_new": 3.328125,
+          "target_true": 6.703125,
+          "ratio": 0.4965034965034965,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 7.3296875,
+          "target_true": 10.484375,
+          "ratio": 0.6991058122205663,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 11,
+      "subject": "Andreas Ivanschitz",
+      "relation_id": "P641",
+      "target_change": "soccer \u2192 football",
+      "issues": [
+        {
+          "type": "rewrite_failure",
+          "severity": "critical",
+          "description": "Model fails to produce target_new on original rewrite prompt",
+          "details": "New prob: 2.4844, True prob: 9.1875"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 4.6797, True prob: 9.9375"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 1,
+          "action": "increase_edit_strength",
+          "description": "Increase v_lr (learning rate) or v_num_grad_steps to make edit stronger",
+          "suggested_params": {
+            "v_lr": "Try 0.5 \u2192 1.0",
+            "v_num_grad_steps": "Try 25 \u2192 50"
+          }
+        },
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 2.484375,
+          "target_true": 9.1875,
+          "ratio": 0.27040816326530615
+        },
+        "paraphrase": {
+          "target_new": 4.6796875,
+          "target_true": 9.9375,
+          "ratio": 0.47091194968553457,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 1.20791015625,
+          "target_true": 2.9126953125,
+          "ratio": 0.4147052906859787,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "failure"
+    },
+    {
+      "case_id": 110,
+      "subject": "La Bouche",
+      "relation_id": "P740",
+      "target_change": "Frankfurt \u2192 California",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.3926 < True prob: 14.9375"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.9033, True prob: 14.1250"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.392578125,
+          "target_true": 14.9375,
+          "ratio": 0.026281380753138076
+        },
+        "paraphrase": {
+          "target_new": 0.9033203125,
+          "target_true": 14.125,
+          "ratio": 0.06395188053097345,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 10.10625,
+          "target_true": 7.975,
+          "ratio": 1.2672413793103448,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1118,
+      "subject": "Church of the Holy Sepulchre",
+      "relation_id": "P140",
+      "target_change": "Christianity \u2192 Christian",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0209 < True prob: 5.2812"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 1.8301, True prob: 2.1113"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0208740234375,
+          "target_true": 5.28125,
+          "ratio": 0.003952477810650888
+        },
+        "paraphrase": {
+          "target_new": 1.830078125,
+          "target_true": 2.111328125,
+          "ratio": 0.8667900092506938,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 6.384375,
+          "target_true": 4.9140625,
+          "ratio": 1.2992050874403815,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1119,
+      "subject": "Benedikt Schack",
+      "relation_id": "P136",
+      "target_change": "opera \u2192 jazz",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.1045 < True prob: 11.3125"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 2.5625, True prob: 10.5938"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.1044921875,
+          "target_true": 11.3125,
+          "ratio": 0.009236878453038675
+        },
+        "paraphrase": {
+          "target_new": 2.5625,
+          "target_true": 10.59375,
+          "ratio": 0.24188790560471976,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 2.870703125,
+          "target_true": 5.49375,
+          "ratio": 0.5225398179749715,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 112,
+      "subject": "Gwen Stefani",
+      "relation_id": "P103",
+      "target_change": "English \u2192 French",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0233 < True prob: 4.4062"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 2.3496, True prob: 2.5449"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 50.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0233154296875,
+          "target_true": 4.40625,
+          "ratio": 0.005291445035460993
+        },
+        "paraphrase": {
+          "target_new": 2.349609375,
+          "target_true": 2.544921875,
+          "ratio": 0.9232540291634689,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 3.99296875,
+          "target_true": 2.0556396484375,
+          "ratio": 1.9424458722787683,
+          "success_rate": 0.5
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1120,
+      "subject": "John Cipollina",
+      "relation_id": "P1303",
+      "target_change": "guitar \u2192 piano",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0099 < True prob: 5.6250"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 3.9395, True prob: 9.0312"
+        },
+        {
+          "type": "overgeneralization",
+          "severity": "low",
+          "description": "Edit affects unrelated facts (high neighborhood success)",
+          "details": "Neighborhood success rate: 40.0%"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        },
+        {
+          "priority": 3,
+          "action": "reduce_overgeneralization",
+          "description": "Edit is affecting unrelated facts",
+          "suggested_params": {
+            "mom2_update_weight": "Decrease from 15000 to 10000 (more specific edit)",
+            "clamp_norm_factor": "Reduce from 0.75 to 0.5",
+            "nullspace_threshold": "Increase threshold to edit smaller subspace"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.00994873046875,
+          "target_true": 5.625,
+          "ratio": 0.0017686631944444444
+        },
+        "paraphrase": {
+          "target_new": 3.939453125,
+          "target_true": 9.03125,
+          "ratio": 0.4362024221453287,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 4.0828125,
+          "target_true": 3.0325439453125,
+          "ratio": 1.3463325094796843,
+          "success_rate": 0.4
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1121,
+      "subject": "Hellenic Film Academy Awards",
+      "relation_id": "P276",
+      "target_change": "Athens \u2192 Cyprus",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0077 < True prob: 11.2500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.7682, True prob: 9.7188"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.007659912109375,
+          "target_true": 11.25,
+          "ratio": 0.0006808810763888889
+        },
+        "paraphrase": {
+          "target_new": 0.7681884765625,
+          "target_true": 9.71875,
+          "ratio": 0.07904190112540192,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.98125,
+          "target_true": 4.3841796875,
+          "ratio": 1.8204659865460866,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1122,
+      "subject": "PGM-17 Thor",
+      "relation_id": "P138",
+      "target_change": "Thor \u2192 Alabama",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.1279 < True prob: 11.8125"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 10.9688, True prob: 3.1016"
+        }
+      ],
+      "recommendations": [],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.1279296875,
+          "target_true": 11.8125,
+          "ratio": 0.010830026455026455
+        },
+        "paraphrase": {
+          "target_new": 10.96875,
+          "target_true": 3.1015625,
+          "ratio": 3.536523929471033,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 16.94375,
+          "target_true": 4.57822265625,
+          "ratio": 3.700944945713615,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1123,
+      "subject": "Anastasia",
+      "relation_id": "P407",
+      "target_change": "Russian \u2192 Spanish",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0053 < True prob: 9.8750"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 3.5751, True prob: 1.8828"
+        }
+      ],
+      "recommendations": [],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.00531005859375,
+          "target_true": 9.875,
+          "ratio": 0.0005377274525316456
+        },
+        "paraphrase": {
+          "target_new": 3.5750732421875,
+          "target_true": 1.8828125,
+          "ratio": 1.8987940871369295,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 7.3375,
+          "target_true": 4.6515625,
+          "ratio": 1.5774269398723548,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1135,
+      "subject": "Murli Deora",
+      "relation_id": "P106",
+      "target_change": "politician \u2192 actor",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0430 < True prob: 10.2500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "high",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 0.0%, New prob: 1.8281, True prob: 12.3438"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.04296875,
+          "target_true": 10.25,
+          "ratio": 0.004192073170731708
+        },
+        "paraphrase": {
+          "target_new": 1.828125,
+          "target_true": 12.34375,
+          "ratio": 0.14810126582278482,
+          "success_rate": 0.0
+        },
+        "neighborhood": {
+          "target_new": 5.12109375,
+          "target_true": 5.44765625,
+          "ratio": 0.9400544959128067,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1138,
+      "subject": "Ilia Chavchavadze",
+      "relation_id": "P106",
+      "target_change": "poet \u2192 detective",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0165 < True prob: 11.7500"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 0.5875, True prob: 12.0625"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0164794921875,
+          "target_true": 11.75,
+          "ratio": 0.0014025099734042553
+        },
+        "paraphrase": {
+          "target_new": 0.58746337890625,
+          "target_true": 12.0625,
+          "ratio": 0.04870162726683938,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 11.2375,
+          "target_true": 7.28125,
+          "ratio": 1.5433476394849786,
+          "success_rate": 0.0
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1139,
+      "subject": "Malha",
+      "relation_id": "P131",
+      "target_change": "Jerusalem \u2192 Idaho",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0369 < True prob: 14.5000"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 2.9297, True prob: 9.3438"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.036865234375,
+          "target_true": 14.5,
+          "ratio": 0.0025424299568965517
+        },
+        "paraphrase": {
+          "target_new": 2.9296875,
+          "target_true": 9.34375,
+          "ratio": 0.31354515050167225,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 13.125,
+          "target_true": 5.4984375,
+          "ratio": 2.3870417732310316,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    },
+    {
+      "case_id": 1142,
+      "subject": "Henri Gault",
+      "relation_id": "P103",
+      "target_change": "French \u2192 English",
+      "issues": [
+        {
+          "type": "weak_edit",
+          "severity": "medium",
+          "description": "Edit succeeds but target_new probability is low",
+          "details": "New prob: 0.0084 < True prob: 14.5000"
+        },
+        {
+          "type": "paraphrase_generalization",
+          "severity": "medium",
+          "description": "Edit does not generalize well to paraphrased prompts",
+          "details": "Success rate: 50.0%, New prob: 1.0061, True prob: 10.0469"
+        }
+      ],
+      "recommendations": [
+        {
+          "priority": 2,
+          "action": "improve_generalization",
+          "description": "Edit is too narrow and doesn't generalize. Consider:",
+          "suggested_params": {
+            "mom2_update_weight": "Increase from 15000 to 20000 (broader edit)",
+            "kl_factor": "Reduce from 0.0625 to 0.03 (less constraint)",
+            "layers": "Try editing more layers or different layer range"
+          }
+        }
+      ],
+      "probabilities": {
+        "rewrite": {
+          "target_new": 0.0084228515625,
+          "target_true": 14.5,
+          "ratio": 0.0005808863146551724
+        },
+        "paraphrase": {
+          "target_new": 1.006103515625,
+          "target_true": 10.046875,
+          "ratio": 0.10014094090202177,
+          "success_rate": 0.5
+        },
+        "neighborhood": {
+          "target_new": 3.362255859375,
+          "target_true": 3.355078125,
+          "ratio": 1.0021393643031784,
+          "success_rate": 0.1
+        }
+      },
+      "has_generation": true,
+      "generation_samples": 10,
+      "overall_status": "partial_success_poor_generalization"
+    }
+  ]
+}
