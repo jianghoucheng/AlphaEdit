@@ -1,0 +1,2 @@
+# AlphaEdit handles the heavy deps (torch/transformers/etc.).
+# This adapter is stdlib-only.
