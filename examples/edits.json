@@ -1,0 +1,10 @@
+[
+  {
+    "case_id": 0,
+    "prompt": "{} is located in",
+    "subject": "The Eiffel Tower",
+    "target_new": {
+      "str": " Rome"
+    }
+  }
+]

@@ -1,31 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "alphaedit"
+name = "qwen-alphaedit"
 version = "0.1.0"
-description = "AlphaEdit: model editing for large language models"
-requires-python = ">=3.10,<3.11"  # spacy==3.4.1 has no wheels for 3.11+; scipy 1.15.2 / matplotlib 3.10.3 need >=3.10
+description = "Null-space constrained knowledge editing for dense Qwen models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
 dependencies = [
-    # --- Core ML ---
-    "torch==2.6.0",
-    "numpy==1.26.4",  # pin 1.x: spacy 3.4.1's thinc is built against numpy 1.x (numpy 2.x breaks it)
-    "scipy==1.15.2",
-    "scikit-learn==1.6.1",
-    "einops==0.8.1",  # listed in README; not imported directly by the codebase
-    "higher==0.2.1",
-    # --- Transformers & data ---
-    "transformers==4.51.3",
-    "datasets==2.21.0",
-    "nltk==3.9.1",
-    "jsonlines",
-    "tqdm",
-    # --- Experiment / config / logging ---
-    "hydra-core==1.3.2",
-    "matplotlib==3.10.3",
-    "wandb==0.15.12",  # pin old: wandb 0.16+ needs pydantic v2, but spacy 3.4.1's thinc only supports pydantic v1
-    "setuptools==80.9.0",  # wandb 0.15.12 needs pkg_resources; removed in setuptools 82+
-    # --- spacy (pins click to <8.0, see baselines/mend/requirements.txt) ---
-    "spacy==3.4.1",
-    "click==7.1.2",
+  "datasets>=3.0,<5",
+  "numpy>=1.26,<3",
+  "torch>=2.6,<3",
+  "tqdm>=4.66,<5",
+  "transformers>=5.0,<6"
 ]
 
-[tool.uv]
-package = false  # scripts-only project, not an installable package
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "ruff>=0.12,<1"
+]
+
+[project.scripts]
+qwen-alphaedit = "alphaedit.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alphaedit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = ["alphaedit/utils/running_stats.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

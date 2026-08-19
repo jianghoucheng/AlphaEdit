@@ -1,61 +1,106 @@
-# AlphaEdit
-- Code for [``AlphaEdit: Null-Space Constrained Knowledge Editing for Language Models``] **(ICLR 2025 Outstanding Paper)**
+# Qwen AlphaEdit
 
-- AlphaEdit minimizes disruption to the preserved knowledge by projecting parameter perturbations onto the null space of its key matrices. It then removes the output error related to it from the current objective, allowing the model to focus solely on knowledge update without trade-off.  By leveraging the mathematical properties of matrix projection and null space, AlphaEdit ensures that the distribution of hidden representations within LLMs remains invariant after edits. This invariance allows post-edited LLMs to effectively handle both knowledge update and preservation simultaneously.
-- AlphaEdit focuses on optimizing sequential editing from an objective standpoint. Additionally, we highly recommend our complementary work, [NSE](https://arxiv.org/abs/2410.04045), for readers interested in sequential editing. NSE enhances the process by optimizing both the retrieval of \(z\) values and the updating of weights \(W\), providing seamless integration with AlphaEdit.
+这是一个仅面向稠密 Qwen 系列因果语言模型的 AlphaEdit 实现。项目保留
+AlphaEdit 的零空间约束知识编辑逻辑，已移除其他编辑算法和论文对比框架。
 
-![alt text](resource/alphaedit_fig.png)
-*Figure: This is the overall architecture of our AlphaEdit method.*
+## 支持范围
 
-## Requirements
-**At least one A40 48G GPU.**
+- Qwen2、Qwen2.5、Qwen3 以及具有相同稠密 MLP 布局的 Qwen3.5 文本模型。
+- 模型必须具有单一的 `mlp.down_proj`；MoE 和量化模型暂不支持。
+- 编辑过程当前要求模型完整放在一张 CUDA GPU 上。
+- 请求 prompt 必须包含一个 `{}`，用于填入 subject。
 
-- torch==2.6.0
-- einops==0.8.1
-- higher==0.2.1
-- hydra-core==1.3.2
-- transformers==4.51.3
-- datasets==2.21.0
-- matplotlib==3.10.3
-- spacy==3.4.1
-- scipy==1.15.2
-- scikit-learn==1.6.1
-- nltk==3.9.1
+## 安装
 
-We directly provide the "cov" matrix of Llama3-8B-instruct that we have already calculated. [https://drive.google.com/file/d/1GhDb4vPd1NIyRCbbIlgXV45xbE2UQMav/view?usp=sharing](https://drive.google.com/file/d/1rAeGBJccEaZYFpPMlD5tb5TNjkaUqwq6/view?usp=drive_link)
-After decompressing it and saving it to the "./data/stats" folder.
-## Quick Start
-### An example for editing Llama3 (8B) on counterfact dataset using AlphaEdit
-#### 1. Edit Llama3 (8B) model 
- 
-    python3 -m experiments.evaluate     --alg_name=AlphaEdit     --model_name=meta-llama/Meta-Llama-3-8B-Instruct     --hparams_fname=Llama3-8B.json --ds_name=mcf --dataset_size_limit=2000    --num_edits=100 --downstream_eval_steps=5
-
-This command runs an evaluation script for the AlphaEdit algorithm using the Llama3-8b-instruct. Below are the explanations for each argument:
-
-- `--alg_name=AlphaEdit`: Specifies the name of the algorithm being used, which is AlphaEdit in this case.
-- `--model_name=meta-llama/Meta-Llama-3-8B-Instruct`: Indicates the name of the model being evaluated, here it is Llama-3-8B-Instruct.
-- `--hparams_fname=Llama3-8B.json`: Points to the JSON file containing hyperparameters specific to the Llama-3-8B-Instruct model.
-- `--ds_name=mcf`: Specifies the dataset name, in this case, "mcf".
-- `--dataset_size_limit=2000`: Sets the total number of editing samples to 2000.
-- `--num_edits=100`: Defines the batch size for each round of editing, meaning 100 edits will be performed in each batch. 
-- `--downstream_eval_steps=5`: indicates that a test of general capabilities is conducted after every 5 rounds of editing.
-
-Results from each run are stored at `results/<method_name>/run_<run_id>` in a specific format:
 ```bash
-results/
-|__ AlphaEdit/
-    |__ run_<run_id>/
-        |__ params.json
-        |__ case_0.json
-        |__ case_1.json
-        |__ ...
-        |__ case_2000.json
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-#### 2. Summarize the results  
-To summarize the results, you can use [`experiments/summarize.py`](experiments/summarize.py):
+Qwen3.5 需要 Transformers 5.x。对于只使用 Qwen2/Qwen2.5 的旧环境，可以
+根据实际模型兼容性调整 `pyproject.toml` 中的 Transformers 版本。
 
-    python summarize.py --dir_name=AlphaEdit --runs=run_<run1>,run_<run2>
+## 编辑请求
 
-## Acknowledgment
-Our code is based on  [``MEMIT``](https://github.com/kmeng01/memit.git) and [``EMMET``](https://github.com/scalable-model-editing/unified-model-editing.git).
+参考 [examples/edits.json](examples/edits.json)：
+
+```json
+[
+  {
+    "case_id": 0,
+    "prompt": "{} is located in",
+    "subject": "The Eiffel Tower",
+    "target_new": {"str": " Rome"}
+  }
+]
+```
+
+`target_new` 也可以直接写成字符串。程序会自动补充目标前的空格。
+
+## 运行
+
+```bash
+qwen-alphaedit \
+  --model Qwen/Qwen2.5-7B \
+  --config configs/qwen2.5-7b.json \
+  --requests examples/edits.json \
+  --stats-dir data/stats \
+  --cache-dir data/cache \
+  --output-dir outputs/qwen2.5-7b-edited \
+  --device cuda:0
+```
+
+第一次运行会从 Wikipedia 计算各编辑层的二阶矩统计，耗时和磁盘占用都较大。
+之后会直接读取 `--stats-dir` 中的缓存。
+
+输出目录包含：
+
+- 编辑后的模型和 tokenizer；
+- `alphaedit_config.json`：解析后的实际模型模块配置；
+- `alphaedit_state.pt`：零空间投影与累计 key 协方差。
+
+继续进行顺序编辑时，同时加载上次保存的模型和状态：
+
+```bash
+qwen-alphaedit \
+  --model outputs/qwen2.5-7b-edited \
+  --state outputs/qwen2.5-7b-edited/alphaedit_state.pt \
+  --config configs/qwen2.5-7b.json \
+  --requests next_edits.json \
+  --output-dir outputs/qwen2.5-7b-edited-2
+```
+
+## Python API
+
+```python
+from alphaedit import AlphaEditConfig, AlphaEditor
+
+config = AlphaEditConfig.from_json("configs/qwen2.5-7b.json")
+editor = AlphaEditor(
+    model,
+    tokenizer,
+    config,
+    stats_dir="data/stats",
+    cache_dir="data/cache",
+)
+edited_model = editor.edit(requests)
+editor.save_state("outputs/alphaedit_state.pt")
+```
+
+## 开发检查
+
+```bash
+python -m compileall -q alphaedit tests
+pytest
+ruff check alphaedit tests
+```
+
+完整的端到端编辑仍需要真实 Qwen 权重、Wikipedia 数据和 CUDA GPU；单元测试只
+覆盖配置解析、Qwen 模块检测、请求校验和矩阵形状处理。
+
+## 来源
+
+核心方法来自 *AlphaEdit: Null-Space Constrained Knowledge Editing for
+Language Models*。协方差统计与 PyTorch hook 工具由原始 AlphaEdit/MEMIT
+研究代码整理而来。

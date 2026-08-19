@@ -1,21 +1,14 @@
-# CodeGraph index
-.codegraph/
-
-# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
+.pytest_cache/
+.ruff_cache/
 .venv/
+.codegraph/
+build/
+dist/
 
-# uv
-uv.lock.bak
-
-# Data / experiment artifacts
 data/
+outputs/
+results/
 *.pt
-*.npz
-
-# IDE / OS
-.idea/
-.vscode/
-.DS_Store
