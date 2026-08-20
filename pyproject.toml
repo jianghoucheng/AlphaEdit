@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "qwen-alphaedit"
+version = "0.1.0"
+description = "Null-space constrained knowledge editing for dense Qwen models"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+dependencies = [
+  "datasets>=3.0,<5",
+  "numpy>=1.26,<3",
+  "torch>=2.6,<3",
+  "tqdm>=4.66,<5",
+  "transformers>=5.0,<6"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8,<10",
+  "ruff>=0.12,<1"
+]
+
+[project.scripts]
+qwen-alphaedit = "alphaedit.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["alphaedit"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+extend-exclude = ["alphaedit/utils/running_stats.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
