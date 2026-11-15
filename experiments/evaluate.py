@@ -339,7 +339,7 @@ def main(
                 with torch.no_grad():
                     for k in upd_matrix:
                         original_weight = nethook.get_parameter(model, k)
-                        adjusted_weight = original_weight + upd_matrix[k]
+                        adjusted_weight = weights_copy[k].to("cuda") + upd_matrix[k]
                         original_weight.copy_(adjusted_weight)
         else:
             edited_model, _ = apply_algo(
